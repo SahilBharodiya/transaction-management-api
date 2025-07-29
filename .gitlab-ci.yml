@@ -1,0 +1,169 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip/
+    - .venv/
+
+before_script:
+  - python --version
+  - pip install virtualenv
+  - virtualenv .venv
+  - source .venv/bin/activate || .venv\Scripts\activate
+  - pip install --upgrade pip
+
+# Test stage
+test:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt
+    - pip install pytest pytest-cov requests
+    - python -m pytest tests/ --cov=app --cov-report=xml --cov-report=html
+    - python -c "import app; print('App imports successfully')"
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+    expire_in: 30 days
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+
+# Security scanning
+security_scan:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install safety bandit
+    - safety check -r requirements.txt
+    - bandit -r . -f json -o bandit-report.json || true
+  artifacts:
+    paths:
+      - bandit-report.json
+    expire_in: 30 days
+  allow_failure: true
+
+# Code quality
+code_quality:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install flake8 pylint black isort
+    - flake8 --max-line-length=88 --extend-ignore=E203,W503 app.py
+    - black --check app.py
+    - isort --check-only app.py
+    - pylint app.py --exit-zero --output-format=json > pylint-report.json
+  artifacts:
+    paths:
+      - pylint-report.json
+    expire_in: 30 days
+  allow_failure: true
+
+# Build Docker image
+build:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker build -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# Deploy to staging
+deploy_staging:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - echo "Deploying to staging environment..."
+    - |
+      if [ -n "$STAGING_DEPLOY_WEBHOOK" ]; then
+        curl -X POST \
+          -H "Content-Type: application/json" \
+          -d "{\"image\":\"$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA\"}" \
+          $STAGING_DEPLOY_WEBHOOK || echo "Staging deployment webhook failed"
+      else
+        echo "STAGING_DEPLOY_WEBHOOK not configured, skipping webhook deployment"
+      fi
+    - echo "Staging deployment completed"
+  environment:
+    name: staging
+    url: $STAGING_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# Deploy to production
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - echo "Deploying to production environment..."
+    - |
+      if [ -n "$PRODUCTION_DEPLOY_WEBHOOK" ]; then
+        curl -X POST \
+          -H "Content-Type: application/json" \
+          -d "{\"image\":\"$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA\"}" \
+          $PRODUCTION_DEPLOY_WEBHOOK || echo "Production deployment webhook failed"
+      else
+        echo "PRODUCTION_DEPLOY_WEBHOOK not configured, skipping webhook deployment"
+      fi
+    - echo "Production deployment completed"
+  environment:
+    name: production
+    url: $PRODUCTION_URL
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# API health check after deployment
+health_check:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - echo "Performing health check..."
+    - sleep 30  # Wait for service to start
+    - |
+      if [ -n "$HEALTH_CHECK_URL" ]; then
+        for i in {1..5}; do
+          if curl -f $HEALTH_CHECK_URL/health; then
+            echo "Health check passed"
+            exit 0
+          fi
+          echo "Health check attempt $i failed, retrying..."
+          sleep 10
+        done
+        echo "Health check failed after 5 attempts"
+        exit 1
+      else
+        echo "HEALTH_CHECK_URL not configured, skipping health check"
+      fi
+  dependencies:
+    - deploy_production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"

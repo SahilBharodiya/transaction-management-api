@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-api
+  labels:
+    app: transaction-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: transaction-api
+  template:
+    metadata:
+      labels:
+        app: transaction-api
+    spec:
+      containers:
+      - name: transaction-api
+        image: registry.gitlab.com/your-group/transaction-management-api:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: trades-storage
+          mountPath: /app/trades
+      volumes:
+      - name: trades-storage
+        persistentVolumeClaim:
+          claimName: trades-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transaction-api-service
+spec:
+  selector:
+    app: transaction-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: trades-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
