@@ -4,6 +4,7 @@ import os
 import uuid
 from datetime import datetime
 from pathlib import Path
+from werkzeug.exceptions import BadRequest
 
 app = Flask(__name__)
 
@@ -91,6 +92,11 @@ def create_trade():
             "trade_data": trade_data
         }), 201
         
+    except BadRequest:
+        return jsonify({
+            "error": "Invalid JSON format",
+            "message": "Request body must contain valid JSON"
+        }), 400
     except json.JSONDecodeError:
         return jsonify({
             "error": "Invalid JSON format",

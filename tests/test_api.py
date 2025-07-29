@@ -79,7 +79,7 @@ class TestTradeCreation:
         
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert 'error' in data
+        assert data['error'] == 'Invalid JSON format'
 
 class TestTradeRetrieval:
     """Test trade retrieval endpoints"""
