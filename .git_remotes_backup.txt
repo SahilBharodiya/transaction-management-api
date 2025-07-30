@@ -1,2 +1,0 @@
-﻿origin	https://github.com/SahilBharodiya/transaction-management-api.git (fetch)
-origin	https://github.com/SahilBharodiya/transaction-management-api.git (push)

@@ -20,8 +20,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
-WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', '')
-DEPLOYMENT_SCRIPT = os.environ.get('DEPLOYMENT_SCRIPT', './deploy.sh')
+WEBHOOK_SECRET = "30bX0Quc4serAZ23WEo85nEVCSt_KhWX3k53N2m6c1FzNNmF"
+
+# Use PowerShell script on Windows, bash script on Unix
+import platform
+if platform.system() == 'Windows':
+    DEPLOYMENT_SCRIPT = os.environ.get('DEPLOYMENT_SCRIPT', './deploy.ps1')
+else:
+    DEPLOYMENT_SCRIPT = os.environ.get('DEPLOYMENT_SCRIPT', './deploy.sh')
+
 ALLOWED_REPOS = os.environ.get('ALLOWED_REPOS', 'SahilBharodiya/transaction-management-api').split(',')
 
 def verify_github_signature(payload_body, signature_header, secret):
@@ -86,8 +93,16 @@ def github_webhook():
             env['REPO_NAME'] = repo_name
             env['DOCKER_IMAGE'] = f"ghcr.io/{repo_name.lower()}:latest"
             
+            # Determine command based on script type
+            if DEPLOYMENT_SCRIPT.endswith('.ps1'):
+                # PowerShell script
+                cmd = ['powershell.exe', '-ExecutionPolicy', 'Bypass', '-File', DEPLOYMENT_SCRIPT]
+            else:
+                # Bash script
+                cmd = [DEPLOYMENT_SCRIPT]
+            
             result = subprocess.run(
-                [DEPLOYMENT_SCRIPT],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=600,  # 10 minute timeout
@@ -145,8 +160,16 @@ def manual_deployment():
             env['COMMIT_SHA'] = 'manual'
             env['REPO_NAME'] = 'manual-deployment'
             
+            # Determine command based on script type
+            if DEPLOYMENT_SCRIPT.endswith('.ps1'):
+                # PowerShell script
+                cmd = ['powershell.exe', '-ExecutionPolicy', 'Bypass', '-File', DEPLOYMENT_SCRIPT]
+            else:
+                # Bash script
+                cmd = [DEPLOYMENT_SCRIPT]
+            
             result = subprocess.run(
-                [DEPLOYMENT_SCRIPT],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=600,
