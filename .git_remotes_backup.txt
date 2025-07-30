@@ -1,2 +1,2 @@
-﻿origin	https://github.com/test/test-repo.git (fetch)
-origin	https://github.com/test/test-repo.git (push)
+﻿origin	https://github.com/SahilBharodiya/transaction-management-api.git (fetch)
+origin	https://github.com/SahilBharodiya/transaction-management-api.git (push)
