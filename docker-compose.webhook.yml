@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # Webhook receiver service
+  webhook-receiver:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    ports:
+      - "5001:5001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./deploy.sh:/app/deploy.sh
+      - ./data:/app/data
+    environment:
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-me}
+      - WEBHOOK_PORT=5001
+      - DEPLOYMENT_SCRIPT=/app/deploy.sh
+      - FLASK_ENV=production
+      - ALLOWED_REPOS=SahilBharodiya/transaction-management-api
+    restart: unless-stopped
+    networks:
+      - webhook-network
+
+  # Main API service (deployed via webhook)
+  transaction-api:
+    image: ghcr.io/sahilbharodiya/transaction-management-api:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    networks:
+      - webhook-network
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - webhook-receiver
+      - transaction-api
+    restart: unless-stopped
+    networks:
+      - webhook-network
+
+networks:
+  webhook-network:
+    driver: bridge
