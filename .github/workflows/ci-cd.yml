@@ -185,7 +185,7 @@ jobs:
           curl -X POST \
             -H "Content-Type: application/json" \
             -d "{\"image\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}\"}" \
-            ${{ secrets.STAGING_DEPLOY_WEBHOOK }} || echo "Staging deployment webhook failed"
+            ${{ secrets.STAGING_DEPLOY_WEBHOOK }}/webhook/manual || echo "Staging deployment webhook failed"
         else
           echo "STAGING_DEPLOY_WEBHOOK not configured, skipping webhook deployment"
         fi
@@ -207,7 +207,7 @@ jobs:
           curl -X POST \
             -H "Content-Type: application/json" \
             -d "{\"image\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}\"}" \
-            ${{ secrets.PRODUCTION_DEPLOY_WEBHOOK }} || echo "Production deployment webhook failed"
+            ${{ secrets.PRODUCTION_DEPLOY_WEBHOOK }}/webhook/manual || echo "Production deployment webhook failed"
         else
           echo "PRODUCTION_DEPLOY_WEBHOOK not configured, skipping webhook deployment"
         fi
