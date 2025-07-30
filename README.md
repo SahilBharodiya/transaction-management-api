@@ -1,5 +1,8 @@
 # Transaction Management API
 
+[![CI/CD Pipeline](https://github.com/USERNAME/transaction-management-api/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/USERNAME/transaction-management-api/actions/workflows/ci-cd.yml)
+[![Coverage](https://codecov.io/gh/USERNAME/transaction-management-api/branch/main/graph/badge.svg)](https://codecov.io/gh/USERNAME/transaction-management-api)
+
 A RESTful API for managing financial trades built with Python Flask. This API allows you to create, retrieve, update, and delete trade records stored as JSON files.
 
 ## Features
@@ -25,22 +28,50 @@ A RESTful API for managing financial trades built with Python Flask. This API al
 
 ## Installation and Setup
 
-1. **Clone or navigate to the project directory**
+### Local Development
+
+1. **Clone the repository**
    ```bash
+   git clone https://github.com/USERNAME/transaction-management-api.git
    cd transaction-management-api
    ```
 
-2. **Install dependencies**
+2. **Create virtual environment**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the application**
+4. **Run the application**
    ```bash
    python app.py
    ```
 
 The API will be available at `http://localhost:5000`
+
+### Docker Development
+
+1. **Build the image**
+   ```bash
+   docker build -t transaction-management-api .
+   ```
+
+2. **Run the container**
+   ```bash
+   docker run -p 5000:5000 -v $(pwd)/data:/app/data transaction-management-api
+   ```
+
+### Pull from GitHub Container Registry
+
+```bash
+docker pull ghcr.io/USERNAME/transaction-management-api:latest
+docker run -p 5000:5000 ghcr.io/USERNAME/transaction-management-api:latest
+```
 
 ## API Usage Examples
 
@@ -249,3 +280,71 @@ trade_id = response.json()['trade_id']
 response = requests.get(f'http://localhost:5000/api/trades/{trade_id}')
 print(response.json())
 ```
+
+## CI/CD Pipeline
+
+This project uses **GitHub Actions** for continuous integration and deployment:
+
+### Workflow Features
+- **✅ Automated Testing**: Runs pytest with coverage reporting
+- **🔒 Security Scanning**: Safety and Bandit security checks
+- **📏 Code Quality**: Flake8, Black, isort, and Pylint checks
+- **🐳 Docker Build**: Multi-platform container builds (amd64/arm64)
+- **🚀 Auto Deploy**: Staging and production deployments
+- **📊 Coverage Reports**: Automatic coverage reporting to Codecov
+
+### Branches
+- **`main`**: Production branch (requires manual approval for deployment)
+- **`develop`**: Development branch (auto-deploys to staging)
+- **`feature/*`**: Feature branches (run tests only)
+
+### Container Registry
+Docker images are automatically built and pushed to:
+```
+ghcr.io/USERNAME/transaction-management-api:latest
+ghcr.io/USERNAME/transaction-management-api:main-<commit-sha>
+```
+
+### Environment Variables
+Configure these in your GitHub repository settings:
+
+**Secrets:**
+- `STAGING_DEPLOY_WEBHOOK` - Staging deployment webhook
+- `PRODUCTION_DEPLOY_WEBHOOK` - Production deployment webhook
+
+**Variables:**
+- `STAGING_URL` - Staging environment URL
+- `PRODUCTION_URL` - Production environment URL
+- `HEALTH_CHECK_URL` - Health check endpoint URL
+
+## Migration from GitLab
+
+If you're migrating from GitLab, see the detailed [GitHub Migration Guide](GITHUB_MIGRATION.md).
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`pytest`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+### Development Guidelines
+- Follow PEP 8 style guidelines (enforced by flake8)
+- Format code with Black
+- Sort imports with isort
+- Write tests for new features
+- Maintain test coverage above 70%
+
+## Security
+
+- Dependencies are automatically scanned for vulnerabilities
+- Code is analyzed with Bandit for security issues
+- All images are built with security best practices
+- Regular dependency updates via Dependabot
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

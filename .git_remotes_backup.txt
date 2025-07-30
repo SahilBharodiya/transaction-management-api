@@ -1,0 +1,2 @@
+﻿origin	https://gitlab.com/coretrading1/transaction-management-api.git (fetch)
+origin	https://gitlab.com/coretrading1/transaction-management-api.git (push)
