@@ -1,0 +1,70 @@
+# Ngrok configuration file
+# Visit https://dashboard.ngrok.com to get your authtoken
+version: "2"
+
+# Authentication token (replace with your actual token from ngrok dashboard)
+# You can also set this via environment variable: NGROK_AUTHTOKEN
+authtoken: 
+
+# Agent configuration
+api:
+  addr: localhost:4040
+
+# Tunnel configurations
+tunnels:
+  # Main API tunnel
+  transaction-api:
+    proto: http
+    addr: localhost:5000
+    schemes: [http, https]
+    hostname: # Optional: specify custom domain if you have ngrok pro/business
+    bind_tls: true
+    inspect: true
+    # Basic auth for additional security (optional)
+    # auth: "username:password"
+    
+    # Request/response headers
+    request_headers:
+      add:
+        - "X-Ngrok-Tunnel: transaction-api"
+    
+    # Webhook verification (optional)
+    # verify_webhook:
+    #   provider: "github"
+    #   secret: "your-webhook-secret"
+
+  # Health check tunnel (optional separate tunnel)
+  health-check:
+    proto: http
+    addr: localhost:5000
+    path: /health
+    schemes: [https]
+    bind_tls: true
+
+# Regional settings
+region: us # Options: us, eu, ap, au, sa, jp, in
+
+# Logging
+log_level: info
+log_format: logfmt
+log: stdout
+
+# Web interface configuration
+web_addr: localhost:4040
+console_ui: true
+
+# Advanced settings
+update_channel: stable
+update_check: true
+
+# Connection settings
+heartbeat_interval: 1m
+heartbeat_tolerance: 5s
+
+# Metadata for identification
+metadata: |
+  {
+    "service": "transaction-management-api",
+    "environment": "development",
+    "version": "1.0.0"
+  }

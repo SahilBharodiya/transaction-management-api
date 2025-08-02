@@ -1,0 +1,119 @@
+# Docker Compose configuration with ngrok integration
+version: '3.8'
+
+services:
+  # Main API service
+  transaction-api:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.py
+    volumes:
+      - ./trades:/app/trades
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - api-network
+
+  # API with ngrok tunnel
+  transaction-api-ngrok:
+    build:
+      context: .
+      dockerfile: Dockerfile.ngrok
+    ports:
+      - "5001:5000"  # Different port to avoid conflicts
+      - "4040:4040"  # ngrok web interface
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.py
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}  # Set this in .env file
+    volumes:
+      - ./trades:/app/trades
+      - ./logs:/app/logs
+      - ./ngrok.yml:/root/.ngrok2/ngrok.yml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - api-network
+    depends_on:
+      - transaction-api
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - transaction-api
+    networks:
+      - api-network
+    profiles:
+      - with-proxy
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - api-network
+    profiles:
+      - with-cache
+
+  # PostgreSQL database (optional)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: transactions
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - api-network
+    profiles:
+      - with-db
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - api-network
+    profiles:
+      - with-db
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  api-network:
+    driver: bridge

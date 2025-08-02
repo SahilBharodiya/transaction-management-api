@@ -191,6 +191,135 @@ jobs:
         fi
         echo "Staging deployment completed"
 
+  # Railway deployment for staging
+  railway-staging:
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, code-quality]
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: railway-staging
+      url: ${{ vars.RAILWAY_STAGING_URL }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Railway CLI
+      run: |
+        curl -fsSL https://railway.app/install.sh | sh
+        echo "$HOME/.railway/bin" >> $GITHUB_PATH
+    
+    - name: Deploy to Railway Staging
+      run: |
+        echo "Deploying to Railway staging environment..."
+        railway login --token ${{ secrets.RAILWAY_TOKEN }}
+        railway environment staging
+        railway up --detach
+        
+        # Get deployment URL
+        RAILWAY_URL=$(railway domain 2>/dev/null || echo "")
+        if [ -n "$RAILWAY_URL" ]; then
+          echo "Deployed to: https://$RAILWAY_URL"
+          echo "RAILWAY_URL=https://$RAILWAY_URL" >> $GITHUB_ENV
+        fi
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    
+    - name: Health check Railway deployment
+      if: env.RAILWAY_URL != ''
+      run: |
+        echo "Performing health check on Railway deployment..."
+        sleep 30  # Wait for deployment to be ready
+        
+        for i in {1..5}; do
+          if curl -f "$RAILWAY_URL/health"; then
+            echo "Railway health check passed"
+            exit 0
+          fi
+          echo "Health check attempt $i failed, retrying..."
+          sleep 10
+        done
+        echo "Railway health check failed after 5 attempts"
+        exit 1
+      env:
+        RAILWAY_URL: ${{ env.RAILWAY_URL }}
+
+  # Ngrok tunnel for testing (development branches only)
+  ngrok-testing:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Install ngrok
+      run: |
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | \
+        sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && \
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | \
+        sudo tee /etc/apt/sources.list.d/ngrok.list && \
+        sudo apt update && sudo apt install ngrok
+    
+    - name: Start Flask app
+      run: |
+        python app.py &
+        sleep 5
+        curl -f http://localhost:5000/health || exit 1
+      env:
+        FLASK_ENV: development
+    
+    - name: Start ngrok tunnel
+      if: env.NGROK_AUTHTOKEN != ''
+      run: |
+        ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
+        ngrok http 5000 --log=stdout &
+        sleep 5
+        
+        # Get tunnel URL
+        TUNNEL_URL=$(curl -s http://localhost:4040/api/tunnels | python3 -c "
+        import sys, json
+        try:
+            data = json.load(sys.stdin)
+            tunnels = data.get('tunnels', [])
+            for tunnel in tunnels:
+                if tunnel.get('proto') == 'https':
+                    print(tunnel['public_url'])
+                    break
+        except:
+            pass
+        ")
+        
+        echo "Tunnel URL: $TUNNEL_URL"
+        echo "TUNNEL_URL=$TUNNEL_URL" >> $GITHUB_ENV
+        
+        # Test tunnel
+        if [ -n "$TUNNEL_URL" ]; then
+          curl -f "$TUNNEL_URL/health" || echo "Tunnel health check failed"
+          curl -f "$TUNNEL_URL/api/trades" || echo "Tunnel API check failed"
+        fi
+      env:
+        NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+    
+    - name: Run integration tests with tunnel
+      if: env.TUNNEL_URL != ''
+      run: |
+        # Add any integration tests that require external access
+        echo "Running integration tests with tunnel: $TUNNEL_URL"
+        # Example: pytest tests/integration/ --tunnel-url="$TUNNEL_URL"
+      env:
+        TUNNEL_URL: ${{ env.TUNNEL_URL }}
+
   deploy-production:
     runs-on: ubuntu-latest
     needs: build
@@ -212,6 +341,58 @@ jobs:
           echo "PRODUCTION_DEPLOY_WEBHOOK not configured, skipping webhook deployment"
         fi
         echo "Production deployment completed"
+
+  # Railway deployment for production
+  railway-production:
+    runs-on: ubuntu-latest
+    needs: [build, railway-staging]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment:
+      name: railway-production
+      url: ${{ vars.RAILWAY_PRODUCTION_URL }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Railway CLI
+      run: |
+        curl -fsSL https://railway.app/install.sh | sh
+        echo "$HOME/.railway/bin" >> $GITHUB_PATH
+    
+    - name: Deploy to Railway Production
+      run: |
+        echo "Deploying to Railway production environment..."
+        railway login --token ${{ secrets.RAILWAY_TOKEN }}
+        railway environment production
+        railway up --detach
+        
+        # Get deployment URL
+        RAILWAY_URL=$(railway domain 2>/dev/null || echo "")
+        if [ -n "$RAILWAY_URL" ]; then
+          echo "Deployed to: https://$RAILWAY_URL"
+          echo "RAILWAY_URL=https://$RAILWAY_URL" >> $GITHUB_ENV
+        fi
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    
+    - name: Health check Railway deployment
+      if: env.RAILWAY_URL != ''
+      run: |
+        echo "Performing health check on Railway deployment..."
+        sleep 30  # Wait for deployment to be ready
+        
+        for i in {1..5}; do
+          if curl -f "$RAILWAY_URL/health"; then
+            echo "Railway health check passed"
+            exit 0
+          fi
+          echo "Health check attempt $i failed, retrying..."
+          sleep 10
+        done
+        echo "Railway health check failed after 5 attempts"
+        exit 1
+      env:
+        RAILWAY_URL: ${{ env.RAILWAY_URL }}
 
   health-check:
     runs-on: ubuntu-latest

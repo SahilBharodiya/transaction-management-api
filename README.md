@@ -13,6 +13,7 @@ A RESTful API for managing financial trades built with Python Flask. This API al
 - **Update Trade**: Modify existing trade data
 - **Delete Trade**: Remove trade from the system
 - **Health Check**: Monitor API status
+- **ngrok Integration**: Expose local API to the internet for webhooks and testing
 
 ## API Endpoints
 
@@ -25,6 +26,72 @@ A RESTful API for managing financial trades built with Python Flask. This API al
 - **GET** `/api/trades/{trade_id}` - Get trade by ID
 - **PUT** `/api/trades/{trade_id}` - Update existing trade
 - **DELETE** `/api/trades/{trade_id}` - Delete trade
+
+## Quick Start with ngrok
+
+Get your API running and accessible from the internet in minutes:
+
+```bash
+# 1. Set your ngrok auth token (get it from https://dashboard.ngrok.com)
+set NGROK_AUTHTOKEN=your_ngrok_authtoken_here  # Windows
+export NGROK_AUTHTOKEN=your_ngrok_authtoken_here  # Linux/macOS
+
+# 2. Run the quick start script
+python quick_start_ngrok.py
+```
+
+This will:
+- Install dependencies
+- Start the Flask API
+- Create an ngrok tunnel
+- Provide you with a public URL for testing
+
+For detailed ngrok setup instructions, see [NGROK_SETUP.md](NGROK_SETUP.md).
+
+## 🚂 Railway Deployment
+
+Deploy your API to the cloud in minutes with Railway.com:
+
+### Quick Deploy to Railway
+
+#### Method 1: One-Click Deploy
+1. Visit [Railway Dashboard](https://railway.app/dashboard)
+2. Click "New Project" → "Deploy from GitHub repo"
+3. Select `SahilBharodiya/transaction-management-api`
+4. Railway automatically detects and deploys your Flask app!
+
+#### Method 2: Using Deployment Scripts
+```bash
+# Windows PowerShell
+.\deploy-railway.ps1 quick-deploy
+
+# Linux/macOS/WSL
+chmod +x deploy-railway.sh
+./deploy-railway.sh quick-deploy
+```
+
+#### Method 3: Railway CLI
+```bash
+# Install Railway CLI
+curl -fsSL https://railway.app/install.sh | sh
+
+# Deploy
+railway login
+railway init
+railway up
+```
+
+### What You Get
+- **Automatic HTTPS**: SSL certificates included
+- **Custom Domains**: Add your own domain easily
+- **Database**: One-click PostgreSQL setup
+- **CI/CD**: Automatic deployments on git push
+- **Monitoring**: Built-in logs and metrics
+- **Scaling**: Auto-scaling based on traffic
+
+Your API will be available at: `https://your-app.railway.app`
+
+For comprehensive Railway deployment instructions, see [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md).
 
 ## Installation and Setup
 
@@ -280,6 +347,82 @@ trade_id = response.json()['trade_id']
 response = requests.get(f'http://localhost:5000/api/trades/{trade_id}')
 print(response.json())
 ```
+
+## ngrok Integration
+
+This project includes comprehensive ngrok integration for exposing your local API to the internet. This is particularly useful for:
+
+- **Webhook Development**: Receive webhooks from external services (GitHub, payment processors, etc.)
+- **API Testing**: Share your local API with team members or external services
+- **Mobile Development**: Test your API from mobile devices
+- **Debugging**: Inspect HTTP traffic in real-time
+
+### Quick Start Methods
+
+#### Method 1: Quick Start Script (Recommended)
+```bash
+# Set your ngrok auth token (get from https://dashboard.ngrok.com)
+set NGROK_AUTHTOKEN=your_ngrok_authtoken_here  # Windows
+export NGROK_AUTHTOKEN=your_ngrok_authtoken_here  # Linux/macOS
+
+# Run the quick start script
+python quick_start_ngrok.py
+```
+
+#### Method 2: PowerShell Script (Windows)
+```powershell
+# Set environment variable
+$env:NGROK_AUTHTOKEN = "your_ngrok_authtoken_here"
+
+# Run the setup script
+.\start-ngrok.ps1 start
+```
+
+#### Method 3: Bash Script (Linux/macOS/WSL)
+```bash
+# Set environment variable
+export NGROK_AUTHTOKEN="your_ngrok_authtoken_here"
+
+# Run the setup script
+chmod +x start-ngrok.sh
+./start-ngrok.sh start
+```
+
+#### Method 4: Docker with ngrok
+```bash
+# Set environment variable
+export NGROK_AUTHTOKEN=your_ngrok_authtoken_here
+
+# Start with Docker Compose
+docker-compose -f docker-compose.ngrok.yml up transaction-api-ngrok
+```
+
+### What You Get
+
+After running any of the above methods, you'll get:
+
+- **Public HTTPS URL**: `https://abc123.ngrok.io` - accessible from anywhere
+- **Local Development**: `http://localhost:5000` - for local testing
+- **ngrok Dashboard**: `http://localhost:4040` - real-time traffic inspection
+
+### Testing Your Tunnel
+
+```bash
+# Test health endpoint
+curl https://your-tunnel-url.ngrok.io/health
+
+# Test API endpoints
+curl https://your-tunnel-url.ngrok.io/api/trades
+
+# Create a trade via tunnel
+curl -X POST https://your-tunnel-url.ngrok.io/api/trades \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "AAPL", "quantity": 100, "price": 150.00, "side": "BUY"}'
+```
+
+### Advanced Configuration
+
+For advanced ngrok configuration options, custom domains, authentication, and more, see the detailed [ngrok Setup Guide](NGROK_SETUP.md).
 
 ## CI/CD Pipeline
 
